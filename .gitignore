@@ -1,0 +1,53 @@
+# ---- Node / npm ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+
+# ---- Vite / build output ----
+dist/
+dist-ssr/
+*.local
+
+# ---- Tauri / Rust ----
+src-tauri/target/
+src-tauri/Cargo.lock
+# (keep Cargo.lock if this is a binary/app you deploy - comment the line above if so)
+src-tauri/gen/
+src-tauri/WixTools/
+src-tauri/*.pdb
+
+# ---- Rust general ----
+target/
+**/*.rs.bk
+*.pdb
+
+# ---- Environment / secrets ----
+.env
+.env.local
+.env.*.local
+
+# ---- Editor / OS ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+logs/
+*.log
+
+# ---- TypeScript ----
+*.tsbuildinfo
+
+# ---- Misc ----
+coverage/
+.cache/
