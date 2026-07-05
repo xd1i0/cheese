@@ -192,6 +192,7 @@ impl Square {
   }
 }
 
+#[derive(PartialEq, Debug)]
 pub enum MoveType {
   Quiet,
   DoublePush,

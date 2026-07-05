@@ -1,6 +1,6 @@
 use std::ptr::{null, NonNull};
 use crate::board::BoardErr::InvalidSquare;
-use crate::types::{color_and_piece_to_mailbox, mailbox_to_color_and_piece, Color, Piece, Square, EMPTY_MAILBOX, NO_SQUARE};
+use crate::types::{color_and_piece_to_mailbox, mailbox_to_color_and_piece, Color, Move, MoveType, Piece, Square, CASTLE_BLACK_KINGSIDE, CASTLE_BLACK_QUEENSIDE, CASTLE_WHITE_KINGSIDE, CASTLE_WHITE_QUEENSIDE, EMPTY_MAILBOX, NO_SQUARE};
 
 pub enum BoardErr {
   InvalidMove,
@@ -113,6 +113,128 @@ impl Board {
       Piece::Queen => {self.queens |= square.bitboard()}
       Piece::King => {self.kings |= square.bitboard()}
     }
+    Ok(())
+  }
+
+  pub fn remove_piece(&mut self, square: Square) -> Result<(), BoardErr> {
+    if !square.is_on_board() {
+      return Err(InvalidSquare);
+    }
+    let idx = square.to_index();
+    if self.mailbox[idx] == EMPTY_MAILBOX {
+      return Err(InvalidSquare);
+    }
+
+    let (piece, color) = mailbox_to_color_and_piece(self.mailbox[idx]).unwrap();
+
+    if color == Color::White {
+      self.white &= !square.bitboard();
+    } else {
+      self.black &= !square.bitboard();
+    }
+
+    match piece {
+      Piece::Pawn => {self.pawns &= !square.bitboard();}
+      Piece::Knight => {self.knights &= !square.bitboard();}
+      Piece::Bishop => {self.bishops &= !square.bitboard();}
+      Piece::Rook => {self.rooks &= !square.bitboard();}
+      Piece::Queen => {self.queens &= !square.bitboard();}
+      Piece::King => {self.kings &= !square.bitboard();}
+    }
+
+    self.mailbox[idx] = EMPTY_MAILBOX;
+
+    Ok(())
+  }
+
+  pub fn move_piece(&mut self, from: Square, to: Square) -> Result<(), BoardErr> {
+    let (piece, color) = mailbox_to_color_and_piece(self.mailbox[from.to_index()]).unwrap();
+    self.remove_piece(from)?;
+    self.place_piece(to, piece, color)?;
+    Ok(())
+  }
+
+  pub fn make_move(&mut self, mv: &Move) -> Result<(), BoardErr> {
+    let (piece, color) = mailbox_to_color_and_piece(self.mailbox[mv.from.to_index()])
+      .ok_or(BoardErr::InvalidMove)?;
+
+    self.ep_square = NO_SQUARE;
+
+    match &mv.kind {
+      MoveType::Quiet => {
+        self.move_piece(mv.from, mv.to)?;
+      }
+      MoveType::Capture => {
+        self.remove_piece(mv.to)?;
+        self.move_piece(mv.from, mv.to)?;
+      }
+      MoveType::DoublePush => {
+        self.move_piece(mv.from, mv.to)?;
+        // ep square is the square the pawn passed through
+        let ep = if color == Color::White { mv.to.0 - 8 } else { mv.to.0 + 8 };
+        self.ep_square = Square(ep);
+      }
+      MoveType::EnPassant => {
+        self.move_piece(mv.from, mv.to)?;
+        // captured pawn is behind the ep square
+        let captured = if color == Color::White { mv.to.0 - 8 } else { mv.to.0 + 8 };
+        self.remove_piece(Square(captured))?;
+      }
+      MoveType::Promotion(promo_piece) => {
+        // remove pawn, place promoted piece
+        self.remove_piece(mv.from)?;
+        if self.mailbox[mv.to.to_index()] != EMPTY_MAILBOX {
+          self.remove_piece(mv.to)?;
+        }
+        self.place_piece(mv.to, *promo_piece, color)?;
+      }
+      MoveType::Castle => {
+        self.move_piece(mv.from, mv.to)?;
+        // move the rook based on which side
+        let (rook_from, rook_to) = match mv.to.0 {
+          6  => (Square(7),  Square(5)),   // white kingside
+          2  => (Square(0),  Square(3)),   // white queenside
+          62 => (Square(63), Square(61)),  // black kingside
+          58 => (Square(56), Square(59)),  // black queenside
+          _  => return Err(BoardErr::InvalidMove),
+        };
+        self.move_piece(rook_from, rook_to)?;
+      }
+    }
+
+    // update castling rights
+    match piece {
+      Piece::King => {
+        if color == Color::White {
+          self.castling &= !(CASTLE_WHITE_KINGSIDE | CASTLE_WHITE_QUEENSIDE);
+        } else {
+          self.castling &= !(CASTLE_BLACK_KINGSIDE | CASTLE_BLACK_QUEENSIDE);
+        }
+      }
+      Piece::Rook => {
+        match mv.from.0 {
+          0  => self.castling &= !CASTLE_WHITE_QUEENSIDE,
+          7  => self.castling &= !CASTLE_WHITE_KINGSIDE,
+          56 => self.castling &= !CASTLE_BLACK_QUEENSIDE,
+          63 => self.castling &= !CASTLE_BLACK_KINGSIDE,
+          _  => {}
+        }
+      }
+      _ => {}
+    }
+
+    if piece == Piece::Pawn || matches!(mv.kind, MoveType::Capture) {
+      self.halfmove_clock = 0;
+    } else {
+      self.halfmove_clock += 1;
+    }
+
+    if !self.white_to_move {
+      self.fullmove_number += 1;
+    }
+
+    self.white_to_move = !self.white_to_move;
+
     Ok(())
   }
 

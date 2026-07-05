@@ -298,6 +298,10 @@ pub fn king_attacks(from: u8) -> u64 {
   result
 }
 
+pub fn is_attacked(board: &Board, sq: Square, by_white: bool) -> bool {
+  false
+}
+
 
 #[cfg(test)]
 mod tests {
