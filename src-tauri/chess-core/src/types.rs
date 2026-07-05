@@ -194,6 +194,7 @@ impl Square {
 
 pub enum MoveType {
   Quiet,
+  DoublePush,
   Capture,
   Castle,
   EnPassant,
@@ -211,5 +212,22 @@ pub struct Moves(pub Vec<Move>);
 impl Moves {
   pub fn new() -> Self {
     Moves(Vec::new())
+  }
+}
+
+impl IntoIterator for Moves {
+  type Item = Move;
+  type IntoIter = std::vec::IntoIter<Move>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+
+impl Square {
+  pub fn to_algebraic(self) -> String {
+    let file = (b'a' + self.file()) as char;
+    let rank = (b'1' + self.rank()) as char;
+    format!("{}{}", file, rank)
   }
 }
